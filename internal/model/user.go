@@ -4,6 +4,13 @@ import (
     "gorm.io/gorm"
 )
 
+const (
+    // NormalUserRule 普通用户角色
+    NormalUserRule = 1
+    // SuperUserRule 超级管理员角色
+    SuperUserRule = 2
+)
+
 type User struct {
     gorm.Model
     Uid        string `gorm:"unique;size:12;not null;comment:UID"`
@@ -16,4 +23,10 @@ type User struct {
     Avatar     string `gorm:"size:255;not null;comment:头像"`
     Location   string `gorm:"size:50;not null;comment:地理位置"`
     Intro      string `gorm:"size:255;not null;comment:个人介绍"`
+    Rule       uint8  `gorm:"size:1;not null;default:1;comment:超级管理员:1-正常用户,2-超级管理员"`
+}
+
+// IsSuperAdmin 是否为超级管理员
+func (u *User) IsSuperAdmin() bool {
+    return u.Rule == SuperUserRule
 }

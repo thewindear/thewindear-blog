@@ -7,7 +7,7 @@ import (
 
 // TestApp 测试初始化应用
 func TestApp(t *testing.T) {
-    err := app.Run(ConfigPath)
+    err := app.Run(TestAbsConfigFilePath)
     if err != nil {
         t.Fatal(err)
     }

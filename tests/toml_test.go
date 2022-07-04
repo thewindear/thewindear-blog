@@ -8,9 +8,8 @@ import (
 
 // TestUseTomlParseFile 测试解析toml配置文件
 func TestUseTomlParseFile(t *testing.T) {
-    configPath := "../config/config-dev.toml"
     var config app.Conf
-    _, err := toml.DecodeFile(configPath, &config)
+    _, err := toml.DecodeFile(TestAbsConfigFilePath, &config)
     if err != nil {
         t.Errorf("parse toml file error: %s", err.Error())
     }
