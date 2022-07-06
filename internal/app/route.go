@@ -10,7 +10,7 @@ import (
 func newRoute(conf *conf) (err error) {
     app := fiber.New()
     setRoute(app)
-    if err = app.Listen(conf.Server.ListenHost()); err != nil {
+    if err = app.Listen(conf.Application.ListenHost()); err != nil {
         err = fmt.Errorf("启动服务失败: %v", err)
     }
     return
@@ -24,9 +24,9 @@ func setRoute(app *fiber.App) {
         return ctx.Next()
     })
     // 普通帐号密码登录
-    v1.Post("/login/oauth/password", handle.LoginOauthPassword)
+    v1.Post("/login/oauth/password", handle.OAuthPassword)
     // 创建帐号密码账户
-    v1.Put("/login/oauth/password", handle.CreateOauthPasswordAccount)
+    v1.Put("/login/oauth/password", handle.CreateOAuthPassword)
     // 第三方授权登录
-    v1.Get("/login/oauth/:app/authorize", handle.LoginOauthAuthorize)
+    v1.Get("/login/oauth/:app/authorize", handle.OAuthAuthorize)
 }

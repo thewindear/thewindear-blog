@@ -5,17 +5,20 @@ import (
     "github.com/BurntSushi/toml"
     "github.com/thewindear/thewindear-blog/internal/utils"
     "strconv"
+    "time"
 )
 
 type (
     conf struct {
-        Database *database
-        Server   *server
-        Crypt    *crypt
+        Database    *database
+        Application *application
+        Crypt       *crypt
     }
-    server struct {
-        Name string //服务名
-        Port int    //端口号
+    application struct {
+        Name        string //服务名
+        Port        int    //端口号
+        Domain      string //域名
+        TokenExpire uint   `toml:"token-expire"` //token过期时长
     }
     crypt struct {
         Password string //密码加盐
@@ -23,7 +26,11 @@ type (
     }
 )
 
-func (s *server) ListenHost() string {
+func (s *application) TokenExpireSeconds() time.Duration {
+    return time.Duration(s.TokenExpire) * time.Second
+}
+
+func (s *application) ListenHost() string {
     return ":" + strconv.Itoa(s.Port)
 }
 
@@ -41,9 +48,4 @@ func newConfig(configPath string) (*conf, error) {
 // SaltPassword 给原密码加上salt
 func (c *crypt) SaltPassword(pwd string) string {
     return utils.CryptMD5(pwd, c.Password)
-}
-
-// SaltToken 给原token加上salt
-func (c *crypt) SaltToken(token string) string {
-    return utils.CryptMD5(token, c.Token)
 }

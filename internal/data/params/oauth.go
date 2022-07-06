@@ -5,13 +5,18 @@ import (
     "github.com/thewindear/thewindear-blog/internal/model"
 )
 
-// LoginOauthPasswordParam 帐号密码登录参数
-type LoginOauthPasswordParam struct {
-    Username string `json:"username"`
-    Password string `json:"password"`
-    Captcha  string `json:"captcha,omitempty"`
+// OAuthPassword 帐号密码登录参数
+type OAuthPassword struct {
+    Username string `json:"username" validate:"required,email"`
+    Password string `json:"password" validate:"required,size=32"`
 }
 
-func (lp *LoginOauthPasswordParam) CheckPassword(account model.Account) bool {
+func (lp *OAuthPassword) CheckPassword(account model.Account) bool {
     return app.Config.Crypt.SaltPassword(lp.Password) == account.Password
+}
+
+// CreateOAuthPassword 创建通过账号密码创建账号
+type CreateOAuthPassword struct {
+    Username string `json:"username" validate:"required,email"`
+    Password string `json:"password" validate:"required,size=32"`
 }

@@ -1,34 +1,106 @@
 package service
 
 import (
+    "fmt"
+    "github.com/golang-jwt/jwt/v4"
     "github.com/thewindear/thewindear-blog/internal/app"
     "github.com/thewindear/thewindear-blog/internal/data/params"
     "github.com/thewindear/thewindear-blog/internal/data/response"
+    "github.com/thewindear/thewindear-blog/internal/data/response/errs"
     "github.com/thewindear/thewindear-blog/internal/model"
+    "github.com/thewindear/thewindear-blog/internal/utils"
     "gorm.io/gorm"
+    "time"
 )
 
 type IOAuthService interface {
-    // LoginPassword 通过帐号密码登录
-    LoginPassword(param *params.LoginOauthPasswordParam) (*response.OAuthLoginPasswordResponse, error)
+    // OAuthLoginPassword 通过帐号密码登录
+    OAuthLoginPassword(param *params.OAuthPassword) (*response.JWTToken, error)
+    // CreateOAuthPasswordAccount 通过账号密码创建账户
+    CreateOAuthPasswordAccount(param *params.CreateOAuthPassword) (*response.JWTToken, error)
 }
 
 type oauthService struct{}
 
-// LoginPassword 通过帐号密码获取账户信息并生成jwt token返回
-func (o *oauthService) LoginPassword(param *params.LoginOauthPasswordParam) (*response.OAuthLoginPasswordResponse, error) {
-    var account model.Account
-    err := app.DB.Model(account).Where("username = ?", param.Username).First(&account).Error
-    if err != nil {
-        if gorm.ErrRecordNotFound == err {
-            return nil, nil
-        }
-    }
-
-    if !param.CheckPassword(account) {
-
-    }
+// OAuthLoginPassword 通过帐号密码获取账户信息并生成jwt token返回
+func (o *oauthService) OAuthLoginPassword(param *params.OAuthPassword) (*response.JWTToken, error) {
     return nil, nil
+}
+
+// CreateOAuthPasswordAccount 通过用户名密码创建账户
+func (o *oauthService) CreateOAuthPasswordAccount(param *params.CreateOAuthPassword) (res *response.JWTToken, err error) {
+    var account *model.Account
+    account, err = o.getAccountByUsername(param.Username)
+    if err == nil && account != nil {
+        err = errs.Conflict("账号已存在")
+        return
+    }
+    if !utils.IsRecordNotFound(err) {
+        err = errs.DefaultServerError(err)
+        return
+    }
+    account = model.NewActivatedAccount(param.Username, app.Config.Crypt.SaltPassword(param.Password))
+    var user = model.NewDefaultUser(param.Username)
+    var token *model.Token
+    //1、开启事务
+    err = app.DB.Transaction(func(tx *gorm.DB) (err error) {
+        //2、创建account
+        err = tx.Create(account).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        //3、创建user
+        err = tx.Create(user).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        //4、创建token
+        token = model.NewAccountToken(o.makeRandomToken(param.Username), param.Username, account.ID, user.ID)
+        err = tx.Create(token).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        return nil
+    })
+    //5、生成jwt
+    jwtToken, err := o.makeJWT(token)
+    if utils.ErrNotEmpty(err) {
+        err = errs.DefaultServerError(err)
+        return
+    }
+    res = &response.JWTToken{
+        Token: jwtToken,
+    }
+    return
+}
+
+// makeJWT 生成jwt
+func (o *oauthService) makeJWT(token *model.Token) (string, error) {
+    claims := jwt.RegisteredClaims{
+        Issuer:    app.Config.Application.Domain,
+        Subject:   "token",
+        ID:        token.Token,
+        IssuedAt:  jwt.NewNumericDate(time.Now()),
+        NotBefore: jwt.NewNumericDate(time.Now()),
+        ExpiresAt: jwt.NewNumericDate(time.Now().Add(app.Config.Application.TokenExpireSeconds())),
+    }
+    jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    jwtTokenStr, err := jwtToken.SignedString([]byte(app.Config.Crypt.Token))
+    if err != nil {
+        return "", fmt.Errorf("生成jwt token失败: %v", err)
+    }
+    return jwtTokenStr, nil
+}
+
+// makeRandomToken 随机生成一个token
+func (o *oauthService) makeRandomToken(fromId string) string {
+    return utils.CryptMD5(fromId, utils.MakeToken())
+}
+
+// getAccountByUsername 通过用户名查询账户
+func (o *oauthService) getAccountByUsername(username string) (account *model.Account, err error) {
+    err = app.DB.Model(account).Where("username = ?", username).First(&account).Error
+    return
 }
 
 // NewOAuthService 返回IOAuthService实例

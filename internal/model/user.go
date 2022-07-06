@@ -1,6 +1,7 @@
 package model
 
 import (
+    "github.com/thewindear/thewindear-blog/internal/utils"
     "gorm.io/gorm"
 )
 
@@ -29,4 +30,17 @@ type User struct {
 // IsSuperAdmin 是否为超级管理员
 func (u *User) IsSuperAdmin() bool {
     return u.Rule == SuperUserRule
+}
+
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+    u.Uid = utils.Uid()
+    u.Nickname = utils.GetEmailUsername(u.Email)
+    u.Rule = NormalUserRule
+    return nil
+}
+
+func NewDefaultUser(email string) *User {
+    return &User{
+        Email: email,
+    }
 }

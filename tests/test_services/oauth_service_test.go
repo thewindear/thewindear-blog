@@ -15,15 +15,14 @@ func init() {
     oauthService = service.NewOAuthService()
 }
 
-func TestOAuthLoginPassword(t *testing.T) {
-    param := &params.LoginOauthPasswordParam{
+func TestCreateOAuthPasswordAccount(t *testing.T) {
+    param := &params.CreateOAuthPassword{
         Username: "thewindear@outlook.com",
         Password: utils.CryptMD5("laiwenbang"),
     }
-    token, err := oauthService.LoginPassword(param)
-    if err != nil {
-        t.Fatalf("login failure error: %s", err)
-    } else {
-        t.Logf("login success: %v", token)
+    res, err := oauthService.CreateOAuthPasswordAccount(param)
+    if utils.ErrNotEmpty(err) {
+        t.Fatalf("注册账号失败原因: %s", err)
     }
+    t.Logf("注册账号成功 生成 jwt token: \n %s", res.Token)
 }

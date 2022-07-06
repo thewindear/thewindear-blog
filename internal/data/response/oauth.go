@@ -1,5 +1,5 @@
 package response
 
-type OAuthLoginPasswordResponse struct {
+type JWTToken struct {
     Token string `json:"token"`
 }

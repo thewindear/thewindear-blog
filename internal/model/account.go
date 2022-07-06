@@ -18,3 +18,11 @@ type Account struct {
     Password string `gorm:"size:50;not null;comment:密码"`
     IsActive uint8  `gorm:"default:2;comment:是否被激活:1-未激活,2-已激活"`
 }
+
+func NewActivatedAccount(username, password string) *Account {
+    return &Account{
+        Username: username,
+        Password: password,
+        IsActive: AccountActivated,
+    }
+}
