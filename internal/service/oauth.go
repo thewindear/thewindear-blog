@@ -23,15 +23,55 @@ type IOAuthService interface {
 type oauthService struct{}
 
 // OAuthLoginPassword 通过帐号密码获取账户信息并生成jwt token返回
-func (o *oauthService) OAuthLoginPassword(param *params.OAuthPassword) (*response.JWTToken, error) {
-    return nil, nil
+func (o *oauthService) OAuthLoginPassword(param *params.OAuthPassword) (res *response.JWTToken, err error) {
+    var account *model.Account
+    account, err = o.getAccountByUsername(param.Username)
+    if !utils.IsNull(err) {
+        if utils.IsRecordNotFound(err) {
+            err = errs.Unauthorized("账号不存在")
+            return
+        }
+        err = errs.DefaultServerError(err)
+        return
+    }
+    if !param.CheckPassword(account) {
+        err = errs.Unauthorized("密码错误")
+        return
+    }
+    if !account.IsActivated() {
+        err = errs.StatusForbidden("账号被未被激活")
+        return
+    }
+    var token *model.Token
+    token, err = o.getAccountToken(account.ID)
+    if !utils.IsNull(err) {
+        if utils.IsRecordNotFound(err) {
+            err = errs.StatusForbidden("token未生成")
+            return
+        }
+        err = errs.DefaultServerError(err)
+        return
+    }
+    if !token.IsEnable() {
+        err = errs.StatusForbidden("token不可用")
+        return
+    }
+    jwtToken, err := o.makeJWT(token)
+    if utils.ErrNotEmpty(err) {
+        err = errs.DefaultServerError(err)
+        return
+    }
+    res = &response.JWTToken{
+        Token: jwtToken,
+    }
+    return
 }
 
 // CreateOAuthPasswordAccount 通过用户名密码创建账户
 func (o *oauthService) CreateOAuthPasswordAccount(param *params.CreateOAuthPassword) (res *response.JWTToken, err error) {
     var account *model.Account
     account, err = o.getAccountByUsername(param.Username)
-    if err == nil && account != nil {
+    if utils.IsNull(err) && !utils.IsNull(account) {
         err = errs.Conflict("账号已存在")
         return
     }
@@ -87,7 +127,7 @@ func (o *oauthService) makeJWT(token *model.Token) (string, error) {
     jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
     jwtTokenStr, err := jwtToken.SignedString([]byte(app.Config.Crypt.Token))
     if err != nil {
-        return "", fmt.Errorf("生成jwt token失败: %v", err)
+        return "", fmt.Errorf("生成token失败: %v", err)
     }
     return jwtTokenStr, nil
 }
@@ -100,6 +140,12 @@ func (o *oauthService) makeRandomToken(fromId string) string {
 // getAccountByUsername 通过用户名查询账户
 func (o *oauthService) getAccountByUsername(username string) (account *model.Account, err error) {
     err = app.DB.Model(account).Where("username = ?", username).First(&account).Error
+    return
+}
+
+// getTokenByAccount 通过账号id查询token
+func (o *oauthService) getAccountToken(accountId uint) (token *model.Token, err error) {
+    err = app.DB.Model(token).Where("account_id = ? AND platform = ?", accountId, model.PlatformAccount).First(&token).Error
     return
 }
 

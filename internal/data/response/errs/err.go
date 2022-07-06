@@ -21,6 +21,22 @@ func (ce *Err) Error() string {
     return fmt.Sprintf("[original error]: %s, [message]: %s", ce.Err, ce.Message)
 }
 
+// StatusForbidden 资源被禁止访问
+func StatusForbidden(message string) *Err {
+    return &Err{
+        HttpCode: http.StatusForbidden,
+        Message:  message,
+    }
+}
+
+// Unauthorized 认证失败
+func Unauthorized(message string) *Err {
+    return &Err{
+        HttpCode: http.StatusUnauthorized,
+        Message:  message,
+    }
+}
+
 // Conflict 冲突
 func Conflict(message string) *Err {
     return &Err{

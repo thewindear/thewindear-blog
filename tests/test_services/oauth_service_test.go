@@ -26,3 +26,15 @@ func TestCreateOAuthPasswordAccount(t *testing.T) {
     }
     t.Logf("注册账号成功 生成 jwt token: \n %s", res.Token)
 }
+
+func TestOAuthPasswordLogin(t *testing.T) {
+    param := &params.OAuthPassword{
+        Username: "thewindear@outlook.com",
+        Password: utils.CryptMD5("laiwenbang"),
+    }
+    res, err := oauthService.OAuthLoginPassword(param)
+    if utils.ErrNotEmpty(err) {
+        t.Fatalf("登录失败: %s", err)
+    }
+    t.Logf("登录成功 生成 jwt token: \n %s", res.Token)
+}

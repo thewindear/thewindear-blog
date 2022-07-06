@@ -24,6 +24,11 @@ func IsRecordNotFound(err error) bool {
     return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
+// IsNull 是否为空
+func IsNull(data interface{}) bool {
+    return data == nil
+}
+
 // ErrNotEmpty 判断err不为空
 func ErrNotEmpty(err error) bool {
     return !errors.Is(err, nil)

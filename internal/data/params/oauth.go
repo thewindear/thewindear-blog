@@ -11,7 +11,7 @@ type OAuthPassword struct {
     Password string `json:"password" validate:"required,size=32"`
 }
 
-func (lp *OAuthPassword) CheckPassword(account model.Account) bool {
+func (lp *OAuthPassword) CheckPassword(account *model.Account) bool {
     return app.Config.Crypt.SaltPassword(lp.Password) == account.Password
 }
 

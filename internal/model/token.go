@@ -10,9 +10,9 @@ const (
     // PlatformGithub github帐号
     PlatformGithub = 1
     // TokenStatusEnable token启用
-    TokenStatusEnable = 1
+    TokenStatusEnable = 2
     // TokenStatusDisable token被禁用
-    TokenStatusDisable = 2
+    TokenStatusDisable = 1
 )
 
 // Token 令牌表
@@ -23,7 +23,12 @@ type Token struct {
     Token     string `gorm:"unique;not null;size:32;comment:令牌"`
     FromId    string `gorm:"unique;not null;size:60;comment:平台唯一id"`
     Platform  uint8  `gorm:"not null;default:0;comment:平台:1-帐号,2-github"`
-    Status    uint8  `gorm:"not null;default:0;comment:状态:1-正常,2-禁用"`
+    Status    uint8  `gorm:"not null;default:2;comment:状态:1-禁用,2-启用"`
+}
+
+// IsEnable 是否启用
+func (t *Token) IsEnable() bool {
+    return t.Status == TokenStatusEnable
 }
 
 func NewAccountToken(token, fromId string, accountId, userId uint) *Token {

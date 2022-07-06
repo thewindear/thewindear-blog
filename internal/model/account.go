@@ -19,6 +19,11 @@ type Account struct {
     IsActive uint8  `gorm:"default:2;comment:是否被激活:1-未激活,2-已激活"`
 }
 
+// IsActivated 账号是否被激活
+func (a *Account) IsActivated() bool {
+    return a.IsActive == AccountActivated
+}
+
 func NewActivatedAccount(username, password string) *Account {
     return &Account{
         Username: username,
