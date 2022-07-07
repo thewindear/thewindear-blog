@@ -13,3 +13,8 @@ func TestApp(t *testing.T) {
     }
     t.Logf("初始化应用成功: %v", app.Config)
 }
+
+func TestInitApp(t *testing.T) {
+    InitApp()
+    t.Log(app.Config.OAuthKeys)
+}

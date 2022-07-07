@@ -13,6 +13,7 @@ type (
         Database    *database
         Application *application
         Crypt       *crypt
+        OAuthKeys   map[string]*oauthKey `toml:"oauth-keys"`
     }
     application struct {
         Name        string //服务名
@@ -24,7 +25,17 @@ type (
         Password string //密码加盐
         Token    string //token加盐
     }
+    oauthKey struct {
+        ClientId     string `toml:"client-id"`
+        ClientSecret string `toml:"client-secret"`
+    }
 )
+
+// IsOAuthKeyExists 是否存在第三方登录的key
+func (c *conf) IsOAuthKeyExists(app string) bool {
+    _, ok := c.OAuthKeys[app]
+    return ok
+}
 
 func (s *application) TokenExpireSeconds() time.Duration {
     return time.Duration(s.TokenExpire) * time.Second
