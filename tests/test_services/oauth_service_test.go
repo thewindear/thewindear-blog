@@ -38,3 +38,11 @@ func TestOAuthPasswordLogin(t *testing.T) {
     }
     t.Logf("登录成功 生成 jwt token: \n %s", res.Token)
 }
+
+func TestOAuthGithubLogin(t *testing.T) {
+    res, err := oauthService.OAuth2App("github", "eb0fe46426ce4f50e964")
+    if utils.ErrNotEmpty(err) {
+        t.Fatalf("登录失败: %s", err)
+    }
+    t.Logf("登录成功 生成 jwt token: \n %s", res.Token)
+}

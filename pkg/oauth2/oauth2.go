@@ -1,5 +1,9 @@
 package oauth2
 
+const (
+    IOAuth2Github = "github"
+)
+
 type IOAuth2 interface {
     // RedirectUri 生成跳转至授权uri
     RedirectUri(callback, state string) string
@@ -27,6 +31,7 @@ type UserInfo struct {
     Avatar   string
     HomePage string
     Email    string
+    From     string
     // 原始字段
     Origin map[string]interface{}
 }

@@ -50,7 +50,6 @@ func (o *OAuthGithub) Code2AccessToken(code string) (accessToken *AccessToken, e
         Token: result["access_token"].(string),
     }
     return
-
 }
 
 // AccessToken2UserInfo 通过accessToken获取用户信息
@@ -68,6 +67,7 @@ func (o *OAuthGithub) AccessToken2UserInfo(accessToken string) (userinfo *UserIn
         Nickname: result["name"].(string),
         Avatar:   result["avatar_url"].(string),
         HomePage: result["html_url"].(string),
+        From:     IOAuth2Github,
         Origin:   result,
     }
     if email, ok := result["email"]; ok && !utils.IsNull(email) {
