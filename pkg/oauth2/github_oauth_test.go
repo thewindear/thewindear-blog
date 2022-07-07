@@ -1,15 +1,14 @@
-package tests
+package oauth2
 
 import (
-    "github.com/thewindear/thewindear-blog/internal/service/oauth2"
     "log"
     "testing"
 )
 
-var oauth *oauth2.OAuthGithub
+var oauth *OAuthGithub
 
 func init() {
-    oauth = &oauth2.OAuthGithub{
+    oauth = &OAuthGithub{
         ClientSecret: "74a44b1cae9f39e9c9acb3f83fc461f1382bdcd7",
         ClientId:     "afcbad44b4686623123e",
     }
