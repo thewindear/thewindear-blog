@@ -18,9 +18,19 @@ type IOAuthService interface {
     // OAuthLoginPassword 通过帐号密码登录
     OAuthLoginPassword(param *params.OAuthPassword) (*response.JWTToken, error)
     // CreateOAuthPasswordAccount 通过账号密码创建账户
-    CreateOAuthPasswordAccount(param *params.CreateOAuthPassword) (*response.JWTToken, error)
+    CreateOAuthPasswordAccount(param *params.PutOAuthPassword) (*response.JWTToken, error)
     // OAuth2App 使用第三方OAuth2登录
     OAuth2App(appName, code string) (*response.JWTToken, error)
+    // BindEmail 可以修改和创建新账号
+    BindEmail(user *model.User, email string)
+    // UnBindEmail 解除绑定邮箱帐号
+    UnBindEmail(user *model.User)
+    // BindOAuth2App 绑定第三方OAuth2账号
+    BindOAuth2App(user *model.User, appName, code string)
+    // UnBindOAuth2App 解除绑定第三方OAuth2账号
+    UnBindOAuth2App(user *model.User, appName string)
+    // SetPassword 更新密码 先要判断是否绑定邮箱
+    SetPassword(user *model.User, password string)
 }
 
 type oauthService struct {
@@ -61,7 +71,7 @@ func (o *oauthService) OAuthLoginPassword(param *params.OAuthPassword) (res *res
 }
 
 // CreateOAuthPasswordAccount 通过用户名密码创建账户
-func (o *oauthService) CreateOAuthPasswordAccount(param *params.CreateOAuthPassword) (res *response.JWTToken, err error) {
+func (o *oauthService) CreateOAuthPasswordAccount(param *params.PutOAuthPassword) (res *response.JWTToken, err error) {
     var account *model.Account
     account, err = o.getAccountByUsername(param.Username)
     if utils.IsNull(err) && !utils.IsNull(account) {
@@ -118,6 +128,7 @@ func (o *oauthService) OAuth2App(appName, code string) (res *response.JWTToken, 
         return
     }
     var token *model.Token
+    platformCode := model.Name2PlatformCode(appName)
     token, err = o.getPlatformToken(userinfo.FirstId, model.Name2PlatformCode(appName))
     if utils.ErrNotEmpty(err) {
         if utils.IsRecordNotFound(err) {
@@ -131,6 +142,7 @@ func (o *oauthService) OAuth2App(appName, code string) (res *response.JWTToken, 
                 }
                 //2、创建token
                 token = model.NewAccountToken(o.makeRandomToken(userinfo.FirstId), userinfo.FirstId, 0, user.ID)
+                token.Platform = uint8(platformCode)
                 err = tx.Create(token).Error
                 if utils.ErrNotEmpty(err) {
                     return
@@ -145,6 +157,16 @@ func (o *oauthService) OAuth2App(appName, code string) (res *response.JWTToken, 
     }
     return o.MakeJWTToken(token)
 }
+
+func (o *oauthService) UnBindEmail(user *model.User) {}
+
+func (o *oauthService) BindEmail(user *model.User, email string) {}
+
+func (o *oauthService) BindOAuth2App(user *model.User, appName, code string) {}
+
+func (o *oauthService) UnBindOAuth2App(user *model.User, appName string) {}
+
+func (o *oauthService) SetPassword(user *model.User, password string) {}
 
 // MakeJWTToken 通过Token模型生成JWTToken
 func (o *oauthService) MakeJWTToken(token *model.Token) (res *response.JWTToken, err error) {

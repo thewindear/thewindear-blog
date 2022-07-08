@@ -16,7 +16,7 @@ func init() {
 }
 
 func TestCreateOAuthPasswordAccount(t *testing.T) {
-    param := &params.CreateOAuthPassword{
+    param := &params.PutOAuthPassword{
         Username: "thewindear@outlook.com",
         Password: utils.CryptMD5("laiwenbang"),
     }
