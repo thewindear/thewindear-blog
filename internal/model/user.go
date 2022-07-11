@@ -28,6 +28,15 @@ type User struct {
     Rule       uint8  `gorm:"size:1;not null;default:1;comment:超级管理员:1-正常用户,2-超级管理员"`
 }
 
+// UpdateFieldsFromOAuth2Userinfo 通过不同的from来更新对应的字段
+func (u *User) UpdateFieldsFromOAuth2Userinfo(oauth2User *oauth2.UserInfo) {
+    switch oauth2User.From {
+    case oauth2.IOAuth2Github:
+        u.GithubName = oauth2User.Username
+        break
+    }
+}
+
 // IsBindGithub 是否绑定github
 func (u *User) IsBindGithub() bool {
     return u.GithubName != ""

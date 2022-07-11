@@ -53,7 +53,7 @@ func TestOAuthGithubLogin(t *testing.T) {
 }
 
 func TestOAuthBindEmail(t *testing.T) {
-    err := oauthService.BindEmail(user, "375500819@qq.com")
+    err := oauthService.BindEmail(user, "thewindear@outlook.com")
     if utils.ErrNotEmpty(err) {
         t.Fatalf("绑定邮箱失败: %s", err)
     } else {
@@ -67,6 +67,15 @@ func TestOAuthUnBindEmail(t *testing.T) {
         t.Fatalf("解绑邮箱失败: %v", err)
     } else {
         t.Logf("解绑成功当前邮箱为空: %s", user.Email)
+    }
+}
+
+func TestOAuthSetPassword(t *testing.T) {
+    err := oauthService.SetPassword(user, utils.CryptMD5("laiwenbang"))
+    if utils.ErrNotEmpty(err) {
+        t.Fatalf("设置密码失败")
+    } else {
+        t.Logf("设置密码成功")
     }
 }
 

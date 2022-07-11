@@ -111,20 +111,9 @@ func (o *oauthService) CreateOAuthPasswordAccount(param *params.PutOAuthPassword
 
 // OAuth2App 使用第三方OAuth2登录
 func (o *oauthService) OAuth2App(appName, code string) (res *response.JWTToken, err error) {
-    var appOAuth oauth2.IOAuth2
-    var ok bool
-    if appOAuth, ok = o.oauth2[appName]; !ok || !app.Config.IsOAuthKeyExists(appName) {
-        err = errs.BadRequest("不支持此类app授权登录", nil)
-        return
-    }
-    var accessToken *oauth2.AccessToken
-    if accessToken, err = appOAuth.Code2AccessToken(code); utils.ErrNotEmpty(err) {
-        err = errs.BadRequest("获取授权码失败", err)
-        return
-    }
     var userinfo *oauth2.UserInfo
-    if userinfo, err = appOAuth.AccessToken2UserInfo(accessToken.Token); utils.ErrNotEmpty(err) {
-        err = errs.BadRequest("获取用户信息失败", err)
+    userinfo, err = o.oauth2AppCode2UserInfo(appName, code)
+    if utils.ErrNotEmpty(err) {
         return
     }
     var token *model.Token
@@ -156,6 +145,26 @@ func (o *oauthService) OAuth2App(appName, code string) (res *response.JWTToken, 
         }
     }
     return o.MakeJWTToken(token)
+}
+
+// oauth2AppCode2UserInfo 通过传入对应的oauth2应用名和code换取用户信息
+func (o *oauthService) oauth2AppCode2UserInfo(appName, code string) (userinfo *oauth2.UserInfo, err error) {
+    var appOAuth oauth2.IOAuth2
+    var ok bool
+    if appOAuth, ok = o.oauth2[appName]; !ok || !app.Config.IsOAuthKeyExists(appName) {
+        err = errs.BadRequest("不支持此类app授权登录", nil)
+        return
+    }
+    var accessToken *oauth2.AccessToken
+    if accessToken, err = appOAuth.Code2AccessToken(code); utils.ErrNotEmpty(err) {
+        err = errs.BadRequest("获取OAuth2访问令牌失败", err)
+        return
+    }
+    if userinfo, err = appOAuth.AccessToken2UserInfo(accessToken.Token); utils.ErrNotEmpty(err) {
+        err = errs.BadRequest("获取OAuth2用户信息失败", err)
+        return
+    }
+    return
 }
 
 // BindEmail 绑定邮箱
@@ -221,6 +230,8 @@ func (o *oauthService) updateUserEmailAccount(user *model.User, email string) (e
     }
     account.Username = email
     token.FromId = email
+    //重新生成token
+    token.Token = o.makeRandomToken(email)
     user.Email = email
     err = app.DB.Transaction(func(tx *gorm.DB) (err error) {
         err = tx.Save(account).Error
@@ -270,8 +281,50 @@ func (o *oauthService) UnBindEmail(user *model.User) (err error) {
 }
 
 // BindOAuth2App 绑定第三方账号
-func (o *oauthService) BindOAuth2App(user *model.User, appName, code string) {
-
+func (o *oauthService) BindOAuth2App(user *model.User, appName, code string) (err error) {
+    var userinfo *oauth2.UserInfo
+    switch appName {
+    case oauth2.IOAuth2Github:
+        if user.IsBindGithub() {
+            err = errs.BadRequest("已绑定github请先解除绑定", nil)
+            break
+        }
+        userinfo, err = o.oauth2AppCode2UserInfo(appName, code)
+        if user.GithubName == userinfo.Username {
+            break
+        }
+    default:
+        err = errs.BadRequest("OAuth2 类型错误", nil)
+        break
+    }
+    if utils.ErrNotEmpty(err) {
+        return
+    }
+    var token *model.Token
+    platformCode := model.Name2PlatformCode(appName)
+    token, err = o.getPlatformToken(userinfo.FirstId, platformCode)
+    if utils.ErrNotEmpty(err) {
+        if utils.IsRecordNotFound(err) {
+            //1、创建token
+            token = model.NewAccountToken(o.makeRandomToken(userinfo.FirstId), userinfo.FirstId, 0, user.ID)
+            err = app.DB.Transaction(func(tx *gorm.DB) error {
+                token.Platform = uint8(platformCode)
+                err = tx.Create(token).Error
+                if utils.ErrNotEmpty(err) {
+                    return err
+                }
+                user.UpdateFieldsFromOAuth2Userinfo(userinfo)
+                //2、更新用户
+                return tx.Save(user).Error
+            })
+        }
+        if utils.ErrNotEmpty(err) {
+            err = errs.DefaultServerError(err)
+        }
+    } else {
+        err = errs.Conflict("绑定的账户已被其他人使用,请更换")
+    }
+    return
 }
 
 // UnBindOAuth2App 解除绑定第三方账号,如果当前用户只有一个绑定不允许解绑
@@ -283,12 +336,12 @@ func (o *oauthService) UnBindOAuth2App(user *model.User, appName string) (err er
     switch appName {
     case oauth2.IOAuth2Github:
         if !user.IsBindGithub() {
-            err = errs.BadRequest("没有绑定Github无法解除绑定", nil)
+            err = errs.BadRequest("没有绑定github无法解除绑定", nil)
             break
         }
         err = app.DB.Transaction(func(tx *gorm.DB) (err error) {
             //1、删除token表
-            err = tx.Unscoped().Delete(&model.Token{}, "user_id = ? AND from_id = ?", user.ID, user.GithubName).Error
+            err = tx.Unscoped().Delete(&model.Token{}, "user_id = ? AND platform = ?", user.ID, model.PlatformGithub).Error
             if utils.ErrNotEmpty(err) {
                 return
             }
