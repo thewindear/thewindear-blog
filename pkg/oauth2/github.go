@@ -28,7 +28,7 @@ func (o *OAuthGithub) RedirectUri(callbackUri, state string) string {
     param := url.Values{}
     param.Add("client_id", o.ClientId)
     param.Add("redirect_uri", callbackUri)
-    param.Add("scope", "user:read")
+    param.Add("scope", "read:user user:email")
     param.Add("state", state)
     param.Add("allow_signup", "true")
     return githubRedirectBaseUri + "?" + param.Encode()

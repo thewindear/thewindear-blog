@@ -2,6 +2,7 @@ package errs
 
 import (
     "fmt"
+    "github.com/thewindear/thewindear-blog/internal/utils"
     "net/http"
 )
 
@@ -18,7 +19,11 @@ type Err struct {
 
 // Error 这里会打印原错误信息以及业务错误信息
 func (ce *Err) Error() string {
-    return fmt.Sprintf("[original error]: %s, [message]: %s", ce.Err, ce.Message)
+    if utils.ErrNotEmpty(ce.Err) {
+        return fmt.Sprintf("[original error]: %s [message]: %s", ce.Err, ce.Message)
+    } else {
+        return fmt.Sprintf("[message]: %s", ce.Message)
+    }
 }
 
 // StatusForbidden 资源被禁止访问

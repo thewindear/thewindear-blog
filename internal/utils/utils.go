@@ -24,6 +24,11 @@ func IsRecordNotFound(err error) bool {
     return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
+// NotNull 传入的数据不等于空
+func NotNull(data interface{}) bool {
+    return data != nil
+}
+
 // IsNull 是否为空
 func IsNull(data interface{}) bool {
     return data == nil
@@ -36,17 +41,17 @@ func ErrNotEmpty(err error) bool {
 
 // Uid 用户id
 func Uid() string {
-    return nanoId(1, 8)
+    return RandomStr(1, 8)
 }
 
 // PostId 文章id
 func PostId() string {
-    return nanoId(1, 10)
+    return RandomStr(1, 10)
 }
 
 // MakeToken 随机生成token
 func MakeToken() string {
-    return nanoId(2, 16)
+    return RandomStr(2, 16)
 }
 
 // GetEmailUsername 获取邮箱用户名
@@ -55,7 +60,8 @@ func GetEmailUsername(email string) string {
     return usernameAndDomain[0]
 }
 
-func nanoId(level, size int) (token string) {
+// RandomStr 随机生成指定等级和长度的字符串
+func RandomStr(level, size int) (randStr string) {
     seed := "0123456789qazxswedcvfrtgbnhyyujmkiolp"
     if level >= 1 {
         seed += "QAZXSWEDCVFRTGBNHYYUJMKIOLP-"
@@ -63,6 +69,6 @@ func nanoId(level, size int) (token string) {
     if level >= 2 {
         seed += "!@#$%^&*()_+"
     }
-    token, _ = gonanoid.Generate(seed, size)
-    return token
+    randStr, _ = gonanoid.Generate(seed, size)
+    return randStr
 }

@@ -22,15 +22,15 @@ type IOAuthService interface {
     // OAuth2App 使用第三方OAuth2登录
     OAuth2App(appName, code string) (*response.JWTToken, error)
     // BindEmail 可以修改和创建新账号
-    BindEmail(user *model.User, email string)
+    BindEmail(user *model.User, email string) error
     // UnBindEmail 解除绑定邮箱帐号
-    UnBindEmail(user *model.User)
+    UnBindEmail(user *model.User) error
     // BindOAuth2App 绑定第三方OAuth2账号
     BindOAuth2App(user *model.User, appName, code string)
     // UnBindOAuth2App 解除绑定第三方OAuth2账号
-    UnBindOAuth2App(user *model.User, appName string)
+    UnBindOAuth2App(user *model.User, appName string) error
     // SetPassword 更新密码 先要判断是否绑定邮箱
-    SetPassword(user *model.User, password string)
+    SetPassword(user *model.User, password string) error
 }
 
 type oauthService struct {
@@ -158,15 +158,170 @@ func (o *oauthService) OAuth2App(appName, code string) (res *response.JWTToken, 
     return o.MakeJWTToken(token)
 }
 
-func (o *oauthService) UnBindEmail(user *model.User) {}
+// BindEmail 绑定邮箱
+func (o *oauthService) BindEmail(user *model.User, email string) (err error) {
+    if user.Email == email {
+        return
+    }
+    _, err = o.getAccountByUsername(email)
+    if utils.ErrNotEmpty(err) {
+        //邮箱不存在
+        if utils.IsRecordNotFound(err) {
+            if user.IsBindEmail() {
+                //绑定邮箱更新
+                err = o.updateUserEmailAccount(user, email)
+            } else {
+                //从来没有绑定邮箱创建账号和token
+                err = o.createUserEmailAccount(user, email)
+            }
+        }
+        if utils.ErrNotEmpty(err) {
+            err = errs.DefaultServerError(err)
+        }
+        return
+    }
+    //没有返回错误表示邮箱存在
+    err = errs.Conflict("邮箱已存在")
+    return
+}
 
-func (o *oauthService) BindEmail(user *model.User, email string) {}
+// createUserEmailAccount 创建用户邮箱账户
+func (o *oauthService) createUserEmailAccount(user *model.User, email string) (err error) {
+    account := model.NewActivatedAccount(email, app.Config.Crypt.SaltPassword(utils.RandomStr(2, 10)))
+    user.Email = email
+    //1、开启事务
+    err = app.DB.Transaction(func(tx *gorm.DB) (err error) {
+        //2、创建account
+        err = tx.Create(account).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        //2、更新用户
+        err = tx.Save(user).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        //3、创建token
+        token := model.NewAccountToken(o.makeRandomToken(account.Username), account.Username, account.ID, user.ID)
+        err = tx.Create(token).Error
+        return
+    })
+    return
+}
 
-func (o *oauthService) BindOAuth2App(user *model.User, appName, code string) {}
+// updateUserEmailAccount 更新用户邮箱账户
+func (o *oauthService) updateUserEmailAccount(user *model.User, email string) (err error) {
+    account, err := o.getAccountByUsername(user.Email)
+    if utils.ErrNotEmpty(err) {
+        return
+    }
+    token, err := o.getPlatformToken(user.Email, model.PlatformAccount)
+    if utils.ErrNotEmpty(err) {
+        return
+    }
+    account.Username = email
+    token.FromId = email
+    user.Email = email
+    err = app.DB.Transaction(func(tx *gorm.DB) (err error) {
+        err = tx.Save(account).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        err = tx.Save(token).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        err = tx.Save(user).Error
+        return
+    })
+    return
+}
 
-func (o *oauthService) UnBindOAuth2App(user *model.User, appName string) {}
+// UnBindEmail 解除绑定,如果当前用户只绑定了一个邮箱无法解除绑定
+func (o *oauthService) UnBindEmail(user *model.User) (err error) {
+    if !user.IsBindEmail() {
+        err = errs.BadRequest("未绑定邮箱,无法解绑", nil)
+        return
+    }
+    if !user.IsBindGithub() {
+        err = errs.BadRequest("当前只有一种登录方式,无法解绑", nil)
+        return
+    }
+    err = app.DB.Transaction(func(tx *gorm.DB) (err error) {
+        //1、删除帐号表
+        err = tx.Unscoped().Delete(&model.Account{}, "username = ?", user.Email).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        //2、删除token表
+        err = tx.Unscoped().Delete(&model.Token{}, "user_id = ? AND from_id = ?", user.ID, user.Email).Error
+        if utils.ErrNotEmpty(err) {
+            return
+        }
+        //3、更新用户表
+        return tx.Model(user).Updates(map[string]interface{}{"email": nil}).Error
+    })
+    if utils.ErrNotEmpty(err) {
+        err = errs.DefaultServerError(err)
+    } else {
+        user.Email = ""
+    }
+    return err
+}
 
-func (o *oauthService) SetPassword(user *model.User, password string) {}
+// BindOAuth2App 绑定第三方账号
+func (o *oauthService) BindOAuth2App(user *model.User, appName, code string) {
+
+}
+
+// UnBindOAuth2App 解除绑定第三方账号,如果当前用户只有一个绑定不允许解绑
+func (o *oauthService) UnBindOAuth2App(user *model.User, appName string) (err error) {
+    if !user.IsBindEmail() {
+        err = errs.BadRequest("当前只有一种登录方式,无法解绑", nil)
+        return
+    }
+    switch appName {
+    case oauth2.IOAuth2Github:
+        if !user.IsBindGithub() {
+            err = errs.BadRequest("没有绑定Github无法解除绑定", nil)
+            break
+        }
+        err = app.DB.Transaction(func(tx *gorm.DB) (err error) {
+            //1、删除token表
+            err = tx.Unscoped().Delete(&model.Token{}, "user_id = ? AND from_id = ?", user.ID, user.GithubName).Error
+            if utils.ErrNotEmpty(err) {
+                return
+            }
+            //2、更新用户表
+            err = tx.Model(user).Updates(map[string]interface{}{"github_name": nil}).Error
+            if utils.ErrNotEmpty(err) {
+                user.GithubName = ""
+            }
+            return
+        })
+        if utils.ErrNotEmpty(err) {
+            err = errs.DefaultServerError(err)
+        }
+        break
+    default:
+        err = errs.BadRequest("OAuth2 类型错误", nil)
+    }
+    return
+}
+
+// SetPassword 设置密码,先判断是否绑定了账号
+func (o *oauthService) SetPassword(user *model.User, password string) (err error) {
+    if !user.IsBindEmail() {
+        err = errs.BadRequest("您没有绑定邮箱无法设置密码", nil)
+        return
+    }
+    newPassword := app.Config.Crypt.SaltPassword(password)
+    err = app.DB.Model(&model.Account{}).
+        Where("username = ?", user.Email).
+        Update("password", newPassword).
+        Error
+    return
+}
 
 // MakeJWTToken 通过Token模型生成JWTToken
 func (o *oauthService) MakeJWTToken(token *model.Token) (res *response.JWTToken, err error) {

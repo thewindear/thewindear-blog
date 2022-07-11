@@ -28,6 +28,21 @@ type User struct {
     Rule       uint8  `gorm:"size:1;not null;default:1;comment:超级管理员:1-正常用户,2-超级管理员"`
 }
 
+// IsBindGithub 是否绑定github
+func (u *User) IsBindGithub() bool {
+    return u.GithubName != ""
+}
+
+// IsBindPhone 是否绑定手机号
+func (u *User) IsBindPhone() bool {
+    return u.Phone != ""
+}
+
+// IsBindEmail 是否绑定邮箱
+func (u *User) IsBindEmail() bool {
+    return u.Email != ""
+}
+
 // IsSuperAdmin 是否为超级管理员
 func (u *User) IsSuperAdmin() bool {
     return u.Rule == SuperUserRule

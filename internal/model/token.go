@@ -9,7 +9,7 @@ const (
     // PlatformAccount 本系统帐号
     PlatformAccount = 1
     // PlatformGithub github帐号
-    PlatformGithub = 1
+    PlatformGithub = 2
     // TokenStatusEnable token启用
     TokenStatusEnable = 2
     // TokenStatusDisable token被禁用
