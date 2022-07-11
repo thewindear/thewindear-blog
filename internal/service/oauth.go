@@ -152,7 +152,7 @@ func (o *oauthService) oauth2AppCode2UserInfo(appName, code string) (userinfo *o
     var appOAuth oauth2.IOAuth2
     var ok bool
     if appOAuth, ok = o.oauth2[appName]; !ok || !app.Config.IsOAuthKeyExists(appName) {
-        err = errs.BadRequest("不支持此类app授权登录", nil)
+        err = errs.BadRequest("不支持此类app授权操作", nil)
         return
     }
     var accessToken *oauth2.AccessToken
@@ -291,7 +291,7 @@ func (o *oauthService) BindOAuth2App(user *model.User, appName, code string) (er
         }
         userinfo, err = o.oauth2AppCode2UserInfo(appName, code)
         if user.GithubName == userinfo.Username {
-            break
+            return nil
         }
     default:
         err = errs.BadRequest("OAuth2 类型错误", nil)
