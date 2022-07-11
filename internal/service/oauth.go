@@ -26,7 +26,7 @@ type IOAuthService interface {
     // UnBindEmail 解除绑定邮箱帐号
     UnBindEmail(user *model.User) error
     // BindOAuth2App 绑定第三方OAuth2账号
-    BindOAuth2App(user *model.User, appName, code string)
+    BindOAuth2App(user *model.User, appName, code string) error
     // UnBindOAuth2App 解除绑定第三方OAuth2账号
     UnBindOAuth2App(user *model.User, appName string) error
     // SetPassword 更新密码 先要判断是否绑定邮箱
