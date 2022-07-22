@@ -1,3 +1,4 @@
 config/config-dev.toml
 config/config-prod.toml
 main
+.idea/
